@@ -109,3 +109,55 @@ void NNCache::dump_stats() {
 size_t NNCache::get_estimated_size() {
     return m_order.size() * NNCache::ENTRY_SIZE;
 }
+
+void NNCache::save_cache(const std::string& filename) {
+    auto flags = std::ofstream::out;
+    auto out = std::ofstream{filename, flags};
+    save_cache(out);
+}
+
+void NNCache::load_cache(const std::string& filename) {
+    auto flags = std::ifstream::in;
+    auto in = std::ifstream{filename, flags};
+    load_cache(in);
+}
+
+void NNCache::save_cache(std::ofstream& out) {
+    out << m_size << ' ';
+
+    for (const auto& hash : m_order) {
+        auto result = Network::Netresult{};
+        lookup(hash, result);
+        out << hash << ' ';
+        for (const auto& policy_move : result.policy) {
+            out << policy_move << ' ';
+        }
+        out << result.policy_pass << ' ';
+        out << result.winrate << ' ';
+    }
+}
+void NNCache::load_cache(std::ifstream& in) {
+    auto size = size_t{};
+    in >> size;
+    if (in.fail()) {
+        // Empty file?
+        return;
+    }
+    resize(size);
+
+    for (auto i = 0; i < size; ++i) {
+        auto hash = std::uint64_t{};
+        auto result = Network::Netresult{};
+        in >> hash;
+        for (auto& policy_move : result.policy) {
+            in >> policy_move;
+        }
+        in >> result.policy_pass;
+        in >> result.winrate;
+        if (in.fail()) {
+            // Entries don't fill the cache
+            return;
+        }
+        insert(hash, result);
+    }
+}

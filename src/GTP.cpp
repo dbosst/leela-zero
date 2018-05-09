@@ -48,6 +48,7 @@
 #include "FullBoard.h"
 #include "GameState.h"
 #include "Network.h"
+#include "NNCache.h"
 #include "SGFTree.h"
 #include "SMP.h"
 #include "Training.h"
@@ -922,6 +923,39 @@ void GTP::execute(GameState & game, const std::string& xinput) {
         if (!cmdstream.fail()) {
             gtp_printf(id, "");
         } else {
+            gtp_fail_printf(id, "syntax not understood");
+        }
+
+        return;
+    } else if (command.find("load_cache") == 0) {
+        std::istringstream cmdstream(command);
+        std::string tmp, filename;
+
+        // tmp will eat "load_cache"
+        cmdstream >> tmp >> filename;
+
+        if (!cmdstream.fail()) {
+            s_network->nncache_load(filename);
+            gtp_printf(id, "");
+        }
+        else {
+            gtp_fail_printf(id, "syntax not understood");
+        }
+
+        return;
+    }
+    else if (command.find("save_cache") == 0) {
+        std::istringstream cmdstream(command);
+        std::string tmp, filename;
+
+        // tmp will eat "save_cache"
+        cmdstream >> tmp >> filename;
+
+        if (!cmdstream.fail()) {
+            s_network->nncache_save(filename);
+            gtp_printf(id, "");
+        }
+        else {
             gtp_fail_printf(id, "syntax not understood");
         }
 

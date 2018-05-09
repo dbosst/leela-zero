@@ -88,10 +88,14 @@ public:
     }
 
     void dump_stats();
+    void save_cache(const std::string& filename);
+    void load_cache(const std::string& filename);
 
     // Return the estimated memory consumption of the cache.
     size_t get_estimated_size();
 private:
+    void save_cache(std::ofstream& out);
+    void load_cache(std::ifstream& in);
 
     std::mutex m_mutex;
 

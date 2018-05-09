@@ -1025,3 +1025,11 @@ size_t Network::get_estimated_cache_size() {
 void Network::nncache_resize(int max_count) {
     return m_nncache.resize(max_count);
 }
+
+void Network::nncache_load(const std::string& filename) {
+    return m_nncache.load_cache(filename);
+}
+
+void Network::nncache_save(const std::string& filename) {
+    return m_nncache.save_cache(filename);
+}
