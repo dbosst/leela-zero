@@ -36,6 +36,8 @@
 #include <deque>
 #include <memory>
 #include <mutex>
+#include <sstream>
+#include <string>
 #include <unordered_map>
 
 class NNCache {
@@ -94,8 +96,8 @@ public:
     // Return the estimated memory consumption of the cache.
     size_t get_estimated_size();
 private:
-    void save_cache(std::ofstream& out);
-    void load_cache(std::ifstream& in);
+    std::string get_cache(void);
+    void set_cache(std::stringstream& in_str);
 
     std::mutex m_mutex;
 

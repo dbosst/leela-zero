@@ -28,13 +28,16 @@
 */
 
 #include "config.h"
+
 #include <functional>
 #include <memory>
+#include <vector>
 
 #include "NNCache.h"
 #include "Utils.h"
 #include "UCTSearch.h"
 #include "GTP.h"
+#include "zlib.h"
 
 const int NNCache::MAX_CACHE_COUNT;
 const int NNCache::MIN_CACHE_COUNT;
@@ -111,35 +114,70 @@ size_t NNCache::get_estimated_size() {
 }
 
 void NNCache::save_cache(const std::string& filename) {
-    auto flags = std::ofstream::out;
-    auto out = std::ofstream{filename, flags};
-    save_cache(out);
+    const auto out_str = get_cache();
+    const auto buffer_size = out_str.size();
+    auto buffer = std::vector<char>(buffer_size);
+    memcpy(buffer.data(), out_str.data(), buffer_size);
+
+    auto out = gzopen(filename.c_str(), "wb9");
+    Utils::myprintf("Compressing cache...\n");
+    const auto comp_size = gzwrite(out, buffer.data(), buffer_size);
+    if (!comp_size) {
+        throw std::runtime_error("Error in gzip output");
+    }
+    gzclose(out);
+    Utils::myprintf("Saved cache file %s\n", filename.c_str());
 }
 
 void NNCache::load_cache(const std::string& filename) {
-    auto flags = std::ifstream::in;
-    auto in = std::ifstream{filename, flags};
-    load_cache(in);
+    // gzopen supports both gz and non-gz files, will decompress
+    // or just read directly as needed.
+    const auto in = gzopen(filename.c_str(), "rb");
+    if (in == nullptr) {
+        Utils::myprintf("Could not open cache file: %s\n", filename.c_str());
+        return;
+    }
+    auto in_str = std::stringstream{};
+    constexpr auto buffer_size = 64 * 1024;
+    auto buffer = std::vector<char>(buffer_size);
+    Utils::myprintf("Decompressing cache...\n");
+    while (true) {
+        const auto bytes_read = gzread(in, buffer.data(), buffer_size);
+        if (bytes_read == 0) break;
+        if (bytes_read < 0) {
+            Utils::myprintf("Failed to decompress or read cache file\n");
+            gzclose(in);
+            return;
+        }
+        assert(bytes_read <= buffer_size);
+        in_str.write(buffer.data(), bytes_read);
+    }
+    gzclose(in);
+
+    set_cache(in_str);
+    Utils::myprintf("Loaded cache file %s\n", filename.c_str());
 }
 
-void NNCache::save_cache(std::ofstream& out) {
-    out << m_size << ' ';
+std::string NNCache::get_cache(void) {
+    auto out_str = std::stringstream{};
+    out_str << m_size << ' ';
 
     for (const auto& hash : m_order) {
         auto result = Network::Netresult{};
         lookup(hash, result);
-        out << hash << ' ';
+        out_str << hash << ' ';
         for (const auto& policy_move : result.policy) {
-            out << policy_move << ' ';
+            out_str << policy_move << ' ';
         }
-        out << result.policy_pass << ' ';
-        out << result.winrate << ' ';
+        out_str << result.policy_pass << ' ';
+        out_str << result.winrate << ' ';
     }
+    return out_str.str();
 }
-void NNCache::load_cache(std::ifstream& in) {
+void NNCache::set_cache(std::stringstream& in_str) {
     auto size = size_t{};
-    in >> size;
-    if (in.fail()) {
+    in_str >> size;
+    if (in_str.fail()) {
         // Empty file?
         return;
     }
@@ -148,13 +186,13 @@ void NNCache::load_cache(std::ifstream& in) {
     for (auto i = 0; i < size; ++i) {
         auto hash = std::uint64_t{};
         auto result = Network::Netresult{};
-        in >> hash;
+        in_str >> hash;
         for (auto& policy_move : result.policy) {
-            in >> policy_move;
+            in_str >> policy_move;
         }
-        in >> result.policy_pass;
-        in >> result.winrate;
-        if (in.fail()) {
+        in_str >> result.policy_pass;
+        in_str >> result.winrate;
+        if (in_str.fail()) {
             // Entries don't fill the cache
             return;
         }

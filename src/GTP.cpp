@@ -48,7 +48,6 @@
 #include "FullBoard.h"
 #include "GameState.h"
 #include "Network.h"
-#include "NNCache.h"
 #include "SGFTree.h"
 #include "SMP.h"
 #include "Training.h"
