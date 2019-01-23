@@ -823,6 +823,7 @@ void UCTSearch::ponder() {
         }
         keeprunning  = is_running();
         keeprunning &= !stop_thinking(0, 1);
+        keeprunning &= have_alternate_moves(0, 1);
     } while (!Utils::input_pending() && keeprunning);
 
     // Make sure to post at least once.
@@ -858,4 +859,3 @@ void UCTSearch::set_visit_limit(int visits) {
     // Limit to type max / 2 to prevent overflow when multithreading.
     m_maxvisits = std::min(visits, UNLIMITED_PLAYOUTS);
 }
-
